@@ -71,12 +71,12 @@ def solve_maze(maze):
         path.append(curr)
         curr = parent.get(curr)
         
-    path.insert(0, (w-2, h-1))
-    path.append((1, 0))
+    path.insert(0, (w-2, h-1)) # 出口の外
+    path.append((1, 0))        # 入り口の外
         
     return path
 
-# --- 3. 描画ロジック ---
+# --- 3. 描画ロジック（ここをパワーアップ！） ---
 def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, show_solution=False, solution_width=15):
     h, w = maze.shape
     fig, ax = plt.subplots(figsize=(8, 10))
@@ -119,18 +119,28 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)
 
-    # --- 正解ルート ---
+    # --- 正解ルート（改良版） ---
     if show_solution:
         path = solve_maze(maze)
         px = [p[0] + 0.5 for p in path]
         py = [p[1] + 0.5 for p in path]
         
-        # 線を引く（手書き風なら XKCDモードを適用）
+        # 1. 線を引く（透明度alphaを削除してくっきりさせる）
+        # zorder=10 で壁よりも確実に手前に表示
         if style == "手書き風 (Sketch)":
              with plt.xkcd():
-                 ax.plot(px, py, color="red", linewidth=solution_width, alpha=0.7, solid_capstyle='round')
+                 ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
         else:
-            ax.plot(px, py, color="red", linewidth=solution_width, alpha=0.7, solid_capstyle='round')
+            ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
+            
+        # 2. スタート地点に丸（●）をつける
+        # solution_width に比例してマーカーを大きくする
+        marker_size = solution_width * 1.5
+        ax.plot(px[-1], py[-1], marker='o', color="red", markersize=marker_size, zorder=11)
+
+        # 3. ゴール地点に矢印（▼）をつける
+        # 出口は常に下なので、下向き三角 'v' を使うと綺麗
+        ax.plot(px[0], py[0], marker='v', color="red", markersize=marker_size*1.2, zorder=11)
 
     plt.tight_layout()
     return fig
