@@ -9,15 +9,15 @@ from collections import deque
 # --- ページ設定 ---
 st.set_page_config(page_title="Ultimate Maze Generator", layout="centered")
 
-# --- 1. 迷路生成ロジック（登山モード） ---
+# --- 1. 迷路生成ロジック（登山モード：下から上へ） ---
 def generate_maze(width, height):
     if width % 2 == 0: width += 1
     if height % 2 == 0: height += 1
     
     maze = np.ones((height, width), dtype=int)
     
-    # 【変更】スタート地点を「左下」付近に設定
-    # 配列のインデックスは [y, x] なので、yは下(height-2), xは左(1)
+    # 【ここが重要】スタート地点を「左下」にする
+    # height-2 が一番下の道
     start_x, start_y = 1, height - 2
     maze[start_y, start_x] = 0
     stack = [(start_x, start_y)]
@@ -38,16 +38,16 @@ def generate_maze(width, height):
         if not found:
             stack.pop()
             
-    # 【変更】外壁の穴あけ位置
-    # スタート：左下の壁（height-1, 1）
+    # 【穴の位置を変更】
+    # スタート穴：左下（height-1, 1）
     maze[height-1, 1] = 0          
     
-    # ゴール：右上の壁（0, width-2）
+    # ゴール穴：右上（0, width-2）
     maze[0, width-2] = 0 
     
     return maze
 
-# --- 2. 迷路を解くロジック（登山モード対応） ---
+# --- 2. 迷路を解くロジック ---
 def solve_maze(maze):
     h, w = maze.shape
     
@@ -79,9 +79,9 @@ def solve_maze(maze):
         path.append(curr)
         curr = parent.get(curr)
         
-    # パスの外側への延長（入り口と出口）
-    path.insert(0, (w-2, 0))      # ゴールの外（さらに上へ）
-    path.append((1, h-1))         # スタートの外（さらに下へ）
+    # パスを外側に延長
+    path.insert(0, (w-2, 0))      # ゴールの外（上へ抜ける）
+    path.append((1, h-1))         # スタートの外（下から入る）
         
     return path
 
@@ -92,7 +92,7 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
     
     ax.axis("off")
     ax.set_facecolor('white')
-    ax.invert_yaxis() # 座標系は反転したまま（0が上）
+    ax.invert_yaxis() 
 
     # --- 迷路本体 ---
     if style == "標準 (Digital)":
@@ -128,27 +128,25 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)
 
-    # --- 正解ルート & 矢印 ---
+    # --- 正解ルート & マーカー ---
     if show_solution:
         path = solve_maze(maze)
         px = [p[0] + 0.5 for p in path]
         py = [p[1] + 0.5 for p in path]
         
-        # 1. 赤い線を引く
+        # 線を引く
         if style == "手書き風 (Sketch)":
              with plt.xkcd():
                  ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
         else:
             ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
             
-        # 2. マーカー描画
         marker_size = solution_width * 1.5 
         
-        # スタート地点（一番後ろの座標＝左下）に丸（o）
+        # スタート（左下）：丸 (o)
         ax.plot(px[-1], py[-1], marker='o', color="red", markersize=marker_size, zorder=11, clip_on=False)
 
-        # ゴール地点（一番最初の座標＝右上）に上向き矢印（^）
-        # これで「上に向かってゴール！」になります
+        # ゴール（右上）：上向き矢印 (^)
         ax.plot(px[0], py[0], marker='^', color="red", markersize=marker_size*1.3, zorder=11, clip_on=False)
 
     plt.tight_layout()
