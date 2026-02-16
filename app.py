@@ -16,8 +16,7 @@ def generate_maze(width, height):
     
     maze = np.ones((height, width), dtype=int)
     
-    # 【ここが重要】スタート地点を「左下」にする
-    # height-2 が一番下の道
+    # スタート地点：左下（height-2, 1）
     start_x, start_y = 1, height - 2
     maze[start_y, start_x] = 0
     stack = [(start_x, start_y)]
@@ -38,11 +37,10 @@ def generate_maze(width, height):
         if not found:
             stack.pop()
             
-    # 【穴の位置を変更】
-    # スタート穴：左下（height-1, 1）
+    # 穴あけ
+    # スタート穴：左下
     maze[height-1, 1] = 0          
-    
-    # ゴール穴：右上（0, width-2）
+    # ゴール穴：右上
     maze[0, width-2] = 0 
     
     return maze
@@ -50,10 +48,7 @@ def generate_maze(width, height):
 # --- 2. 迷路を解くロジック ---
 def solve_maze(maze):
     h, w = maze.shape
-    
-    # スタート：左下
     start = (1, h - 2)
-    # ゴール：右上
     end = (w - 2, 1)
     
     queue = deque([start])
@@ -79,25 +74,26 @@ def solve_maze(maze):
         path.append(curr)
         curr = parent.get(curr)
         
-    # パスを外側に延長
-    path.insert(0, (w-2, 0))      # ゴールの外（上へ抜ける）
-    path.append((1, h-1))         # スタートの外（下から入る）
+    path.insert(0, (w-2, 0)) # ゴール外へ
+    path.append((1, h-1))    # スタート外へ
         
     return path
 
-# --- 3. 描画ロジック ---
+# --- 3. 描画ロジック（ここを修正しました！） ---
 def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, show_solution=False, solution_width=15):
     h, w = maze.shape
     fig, ax = plt.subplots(figsize=(8, 10))
     
     ax.axis("off")
     ax.set_facecolor('white')
+    
+    # 【重要】基本設定として座標を反転（0を上にする）
     ax.invert_yaxis() 
 
     # --- 迷路本体 ---
     if style == "標準 (Digital)":
         ax.imshow(maze, cmap="binary", interpolation='nearest')
-        ax.invert_yaxis()
+        # 【修正】ここに余計な ax.invert_yaxis() があったので削除しました
     else:
         for y in range(h):
             for x in range(w):
@@ -160,9 +156,7 @@ st.sidebar.header("設定")
 difficulty = st.sidebar.slider("難易度", 5, 25, 13, step=2)
 
 st.sidebar.markdown("---")
-# チェックボックス
 show_solution = st.sidebar.checkbox("✅ 正解ルートを表示 (Answer Key)", value=False)
-
 sol_width = 15 
 if show_solution:
     sol_width = st.sidebar.slider("🖍️ 正解の線の太さ", 1, 40, 15)
