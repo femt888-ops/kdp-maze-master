@@ -9,14 +9,16 @@ from collections import deque
 # --- ページ設定 ---
 st.set_page_config(page_title="Ultimate Maze Generator", layout="centered")
 
-# --- 1. 迷路生成ロジック ---
+# --- 1. 迷路生成ロジック（登山モード） ---
 def generate_maze(width, height):
     if width % 2 == 0: width += 1
     if height % 2 == 0: height += 1
     
     maze = np.ones((height, width), dtype=int)
     
-    start_x, start_y = 1, 1
+    # 【変更】スタート地点を「左下」付近に設定
+    # 配列のインデックスは [y, x] なので、yは下(height-2), xは左(1)
+    start_x, start_y = 1, height - 2
     maze[start_y, start_x] = 0
     stack = [(start_x, start_y)]
     
@@ -36,17 +38,23 @@ def generate_maze(width, height):
         if not found:
             stack.pop()
             
-    # 上下の壁を開ける
-    maze[0, 1] = 0          
-    maze[height-1, width-2] = 0 
+    # 【変更】外壁の穴あけ位置
+    # スタート：左下の壁（height-1, 1）
+    maze[height-1, 1] = 0          
+    
+    # ゴール：右上の壁（0, width-2）
+    maze[0, width-2] = 0 
     
     return maze
 
-# --- 2. 迷路を解くロジック ---
+# --- 2. 迷路を解くロジック（登山モード対応） ---
 def solve_maze(maze):
     h, w = maze.shape
-    start = (1, 1)
-    end = (w-2, h-2)
+    
+    # スタート：左下
+    start = (1, h - 2)
+    # ゴール：右上
+    end = (w - 2, 1)
     
     queue = deque([start])
     visited = {start}
@@ -71,19 +79,20 @@ def solve_maze(maze):
         path.append(curr)
         curr = parent.get(curr)
         
-    path.insert(0, (w-2, h-1)) # 出口の外
-    path.append((1, 0))        # 入り口の外
+    # パスの外側への延長（入り口と出口）
+    path.insert(0, (w-2, 0))      # ゴールの外（さらに上へ）
+    path.append((1, h-1))         # スタートの外（さらに下へ）
         
     return path
 
-# --- 3. 描画ロジック（ここをパワーアップ！） ---
+# --- 3. 描画ロジック ---
 def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, show_solution=False, solution_width=15):
     h, w = maze.shape
     fig, ax = plt.subplots(figsize=(8, 10))
     
     ax.axis("off")
     ax.set_facecolor('white')
-    ax.invert_yaxis()
+    ax.invert_yaxis() # 座標系は反転したまま（0が上）
 
     # --- 迷路本体 ---
     if style == "標準 (Digital)":
@@ -119,34 +128,34 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)
 
-    # --- 正解ルート（改良版） ---
+    # --- 正解ルート & 矢印 ---
     if show_solution:
         path = solve_maze(maze)
         px = [p[0] + 0.5 for p in path]
         py = [p[1] + 0.5 for p in path]
         
-        # 1. 線を引く（透明度alphaを削除してくっきりさせる）
-        # zorder=10 で壁よりも確実に手前に表示
+        # 1. 赤い線を引く
         if style == "手書き風 (Sketch)":
              with plt.xkcd():
                  ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
         else:
             ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
             
-        # 2. スタート地点に丸（●）をつける
-        # solution_width に比例してマーカーを大きくする
-        marker_size = solution_width * 1.5
-        ax.plot(px[-1], py[-1], marker='o', color="red", markersize=marker_size, zorder=11)
+        # 2. マーカー描画
+        marker_size = solution_width * 1.5 
+        
+        # スタート地点（一番後ろの座標＝左下）に丸（o）
+        ax.plot(px[-1], py[-1], marker='o', color="red", markersize=marker_size, zorder=11, clip_on=False)
 
-        # 3. ゴール地点に矢印（▼）をつける
-        # 出口は常に下なので、下向き三角 'v' を使うと綺麗
-        ax.plot(px[0], py[0], marker='v', color="red", markersize=marker_size*1.2, zorder=11)
+        # ゴール地点（一番最初の座標＝右上）に上向き矢印（^）
+        # これで「上に向かってゴール！」になります
+        ax.plot(px[0], py[0], marker='^', color="red", markersize=marker_size*1.3, zorder=11, clip_on=False)
 
     plt.tight_layout()
     return fig
 
 # --- 4. アプリUI ---
-st.title("🧩 Ultimate Maze Generator")
+st.title("🧩 Ultimate Maze (Climbing Mode)")
 
 st.sidebar.header("設定")
 difficulty = st.sidebar.slider("難易度", 5, 25, 13, step=2)
@@ -155,7 +164,6 @@ st.sidebar.markdown("---")
 # チェックボックス
 show_solution = st.sidebar.checkbox("✅ 正解ルートを表示 (Answer Key)", value=False)
 
-# 正解線が表示される時だけ、太さスライダーを出す
 sol_width = 15 
 if show_solution:
     sol_width = st.sidebar.slider("🖍️ 正解の線の太さ", 1, 40, 15)
