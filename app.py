@@ -76,7 +76,7 @@ def solve_maze(maze):
         
     return path
 
-# --- 3. 描画ロジック（線の太さ対応） ---
+# --- 3. 描画ロジック ---
 def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, show_solution=False, solution_width=15):
     h, w = maze.shape
     fig, ax = plt.subplots(figsize=(8, 10))
@@ -88,4 +88,114 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
     # --- 迷路本体 ---
     if style == "標準 (Digital)":
         ax.imshow(maze, cmap="binary", interpolation='nearest')
-        ax.
+        ax.invert_yaxis()
+    else:
+        for y in range(h):
+            for x in range(w):
+                if maze[y, x] == 1: # 壁
+                    if style == "手書き風 (Sketch)":
+                        rect = patches.Rectangle(
+                            (x, y), 1, 1, 
+                            facecolor="black", edgecolor="black"
+                        )
+                        if sketch_params: rect.set_sketch_params(**sketch_params)
+                    elif style == "模様 (Pattern)":
+                        rect = patches.Rectangle(
+                            (x, y), 1, 1, 
+                            facecolor="white", edgecolor="black", 
+                            hatch=hatch, linewidth=0
+                        )
+                    elif style == "角丸 (Rounded)":
+                        box_style = f"round,pad=0,rounding_size={roundness}"
+                        rect = patches.FancyBboxPatch(
+                            (x, y), 1, 1,
+                            boxstyle=box_style,
+                            facecolor="black", edgecolor="black",
+                        )
+                    else:
+                        rect = patches.Rectangle((x, y), 1, 1, fc="black")
+                    ax.add_patch(rect)
+        
+        ax.set_xlim(0, w)
+        ax.set_ylim(h, 0)
+
+    # --- 正解ルート ---
+    if show_solution:
+        path = solve_maze(maze)
+        px = [p[0] + 0.5 for p in path]
+        py = [p[1] + 0.5 for p in path]
+        
+        # 線を引く（手書き風なら XKCDモードを適用）
+        if style == "手書き風 (Sketch)":
+             with plt.xkcd():
+                 ax.plot(px, py, color="red", linewidth=solution_width, alpha=0.7, solid_capstyle='round')
+        else:
+            ax.plot(px, py, color="red", linewidth=solution_width, alpha=0.7, solid_capstyle='round')
+
+    plt.tight_layout()
+    return fig
+
+# --- 4. アプリUI ---
+st.title("🧩 Ultimate Maze Generator")
+
+st.sidebar.header("設定")
+difficulty = st.sidebar.slider("難易度", 5, 25, 13, step=2)
+
+st.sidebar.markdown("---")
+# チェックボックス
+show_solution = st.sidebar.checkbox("✅ 正解ルートを表示 (Answer Key)", value=False)
+
+# 正解線が表示される時だけ、太さスライダーを出す
+sol_width = 15 
+if show_solution:
+    sol_width = st.sidebar.slider("🖍️ 正解の線の太さ", 1, 40, 15)
+
+st.sidebar.markdown("---")
+
+style = st.sidebar.selectbox(
+    "デザインスタイル",
+    ["標準 (Digital)", "手書き風 (Sketch)", "模様 (Pattern)", "角丸 (Rounded)"]
+)
+
+hatch_p = None
+round_v = 0
+sketch_p = None
+
+if style == "手書き風 (Sketch)":
+    scale = st.sidebar.slider("ヨレ (Scale)", 1.0, 10.0, 3.0)
+    length = st.sidebar.slider("細かさ (Length)", 10.0, 150.0, 100.0)
+    sketch_p = {'scale': scale, 'length': length, 'randomness': 10.0}
+
+elif style == "模様 (Pattern)":
+    pat_type = st.sidebar.selectbox("模様", ["斜線 (///)", "ドット (...)", "クロス (xx)", "星 (**)"])
+    if "斜線" in pat_type: hatch_p = "///"
+    elif "ドット" in pat_type: hatch_p = ".."
+    elif "クロス" in pat_type: hatch_p = "xx"
+    elif "星" in pat_type: hatch_p = "**"
+
+elif style == "角丸 (Rounded)":
+    round_v = st.sidebar.slider("丸み", 0.1, 1.0, 0.4)
+
+# 生成ボタン
+if st.button("迷路を生成する"):
+    with st.spinner("描画中..."):
+        width = difficulty
+        height = int(width * 1.3)
+        
+        maze_data = generate_maze(width, height)
+        fig = plot_maze_master(maze_data, style, hatch_p, round_v, sketch_p, show_solution, sol_width)
+        
+        st.pyplot(fig)
+        
+        file_prefix = "solution" if show_solution else "maze"
+        
+        buf = BytesIO()
+        fig.savefig(buf, format="pdf", dpi=300, bbox_inches='tight', pad_inches=0.1)
+        buf.seek(0)
+        
+        st.download_button(
+            label="📄 PDFダウンロード",
+            data=buf,
+            file_name=f"{file_prefix}_{style}.pdf",
+            mime="application/pdf"
+        )
