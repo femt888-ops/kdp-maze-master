@@ -154,6 +154,7 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
 
 # --- 4. アプリUI ---
 st.title("🧩 Ultimate Maze (Climbing Mode)")
+st.caption("下（スタート）から上（ゴール）を目指す登山モード")
 
 st.sidebar.header("設定")
 difficulty = st.sidebar.slider("難易度", 5, 25, 13, step=2)
