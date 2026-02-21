@@ -16,7 +16,6 @@ def generate_maze(width, height):
     
     maze = np.ones((height, width), dtype=int)
     
-    # スタート地点：左下（height-2, 1）
     start_x, start_y = 1, height - 2
     maze[start_y, start_x] = 0
     stack = [(start_x, start_y)]
@@ -38,9 +37,7 @@ def generate_maze(width, height):
             stack.pop()
             
     # 穴あけ
-    # スタート穴：左下
     maze[height-1, 1] = 0          
-    # ゴール穴：右上
     maze[0, width-2] = 0 
     
     return maze
@@ -79,47 +76,65 @@ def solve_maze(maze):
         
     return path
 
-# --- 3. 描画ロジック（ここを修正しました！） ---
+# --- 3. 描画ロジック ---
 def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, show_solution=False, solution_width=15):
     h, w = maze.shape
     fig, ax = plt.subplots(figsize=(8, 10))
     
     ax.axis("off")
     ax.set_facecolor('white')
-    
-    # 【重要】基本設定として座標を反転（0を上にする）
     ax.invert_yaxis() 
 
     # --- 迷路本体 ---
     if style == "標準 (Digital)":
         ax.imshow(maze, cmap="binary", interpolation='nearest')
-        # 【修正】ここに余計な ax.invert_yaxis() があったので削除しました
     else:
         for y in range(h):
             for x in range(w):
-                if maze[y, x] == 1: # 壁
-                    if style == "手書き風 (Sketch)":
-                        rect = patches.Rectangle(
-                            (x, y), 1, 1, 
-                            facecolor="black", edgecolor="black"
-                        )
+                if maze[y, x] == 1: # 壁を描画
+                    
+                    # 🐄 牛柄 (Cow) - 白黒
+                    if style == "牛柄 (Cow)":
+                        rect = patches.Rectangle((x, y), 1, 1, facecolor="black", edgecolor="none")
+                        ax.add_patch(rect)
+                        for _ in range(random.randint(2, 4)): 
+                            bx = x + random.random()
+                            by = y + random.random()
+                            bw = random.uniform(0.3, 0.6)
+                            bh = random.uniform(0.3, 0.6)
+                            angle = random.uniform(0, 360)
+                            blob = patches.Ellipse((bx, by), bw, bh, angle=angle, facecolor="white")
+                            ax.add_patch(blob)
+
+                    # 🐯 虎柄 (Tiger) - 白黒
+                    elif style == "虎柄 (Tiger)":
+                        rect = patches.Rectangle((x, y), 1, 1, facecolor="black", edgecolor="none")
+                        ax.add_patch(rect)
+                        for _ in range(random.randint(2, 3)):
+                            side = random.choice(['left', 'right'])
+                            sy = y + random.random()
+                            thickness = random.uniform(0.1, 0.3)
+                            if side == 'left':
+                                poly = patches.Polygon([[x, sy], [x + 0.6, sy + thickness], [x, sy + thickness*2]], closed=True, facecolor="white")
+                            else:
+                                poly = patches.Polygon([[x+1, sy], [x + 0.4, sy + thickness], [x+1, sy + thickness*2]], closed=True, facecolor="white")
+                            ax.add_patch(poly)
+
+                    # 既存スタイル
+                    elif style == "手書き風 (Sketch)":
+                        rect = patches.Rectangle((x, y), 1, 1, facecolor="black", edgecolor="black")
                         if sketch_params: rect.set_sketch_params(**sketch_params)
+                        ax.add_patch(rect)
                     elif style == "模様 (Pattern)":
-                        rect = patches.Rectangle(
-                            (x, y), 1, 1, 
-                            facecolor="white", edgecolor="black", 
-                            hatch=hatch, linewidth=0
-                        )
+                        rect = patches.Rectangle((x, y), 1, 1, facecolor="white", edgecolor="black", hatch=hatch, linewidth=0)
+                        ax.add_patch(rect)
                     elif style == "角丸 (Rounded)":
                         box_style = f"round,pad=0,rounding_size={roundness}"
-                        rect = patches.FancyBboxPatch(
-                            (x, y), 1, 1,
-                            boxstyle=box_style,
-                            facecolor="black", edgecolor="black",
-                        )
+                        rect = patches.FancyBboxPatch((x, y), 1, 1, boxstyle=box_style, facecolor="black", edgecolor="black")
+                        ax.add_patch(rect)
                     else:
                         rect = patches.Rectangle((x, y), 1, 1, fc="black")
-                    ax.add_patch(rect)
+                        ax.add_patch(rect)
         
         ax.set_xlim(0, w)
         ax.set_ylim(h, 0)
@@ -130,20 +145,32 @@ def plot_maze_master(maze, style, hatch=None, roundness=0, sketch_params=None, s
         px = [p[0] + 0.5 for p in path]
         py = [p[1] + 0.5 for p in path]
         
-        # 線を引く
+        # 道筋の線（白黒印刷対応：薄いグレー + 黒点線）
         if style == "手書き風 (Sketch)":
              with plt.xkcd():
-                 ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
+                 ax.plot(px, py, color="#DDDDDD", linewidth=solution_width, solid_capstyle='round', zorder=10)
+                 ax.plot(px, py, color="black", linewidth=solution_width/4, linestyle="--", solid_capstyle='round', zorder=11)
         else:
-            ax.plot(px, py, color="red", linewidth=solution_width, solid_capstyle='round', zorder=10)
+             ax.plot(px, py, color="#DDDDDD", linewidth=solution_width, solid_capstyle='round', zorder=10)
+             ax.plot(px, py, color="black", linewidth=2, linestyle="--", zorder=11)
             
         marker_size = solution_width * 1.5 
         
-        # スタート（左下）：丸 (o)
-        ax.plot(px[-1], py[-1], marker='o', color="red", markersize=marker_size, zorder=11, clip_on=False)
-
-        # ゴール（右上）：上向き矢印 (^)
-        ax.plot(px[0], py[0], marker='^', color="red", markersize=marker_size*1.3, zorder=11, clip_on=False)
+        # 【修正】スタート（左下）：白塗り・黒フチ
+        ax.plot(px[-1], py[-1], marker='o', 
+                markerfacecolor="white",    # 中は白
+                markeredgecolor="black",    # フチは黒
+                markeredgewidth=3,          # フチを太く
+                markersize=marker_size, 
+                zorder=12, clip_on=False)
+        
+        # 【修正】ゴール（右上）：白塗り・黒フチ
+        ax.plot(px[0], py[0], marker='^', 
+                markerfacecolor="white",    # 中は白
+                markeredgecolor="black",    # フチは黒
+                markeredgewidth=3,          # フチを太く
+                markersize=marker_size*1.3, 
+                zorder=12, clip_on=False)
 
     plt.tight_layout()
     return fig
@@ -165,7 +192,14 @@ st.sidebar.markdown("---")
 
 style = st.sidebar.selectbox(
     "デザインスタイル",
-    ["標準 (Digital)", "手書き風 (Sketch)", "模様 (Pattern)", "角丸 (Rounded)"]
+    [
+        "標準 (Digital)", 
+        "手書き風 (Sketch)", 
+        "牛柄 (Cow)",       
+        "虎柄 (Tiger)",     
+        "模様 (Pattern)", 
+        "角丸 (Rounded)"
+    ]
 )
 
 hatch_p = None
@@ -178,11 +212,18 @@ if style == "手書き風 (Sketch)":
     sketch_p = {'scale': scale, 'length': length, 'randomness': 10.0}
 
 elif style == "模様 (Pattern)":
-    pat_type = st.sidebar.selectbox("模様", ["斜線 (///)", "ドット (...)", "クロス (xx)", "星 (**)"])
+    pat_type = st.sidebar.selectbox(
+        "模様の種類", 
+        ["斜線 (///)", "ドット (...)", "クロス (xx)", "星 (**)", "バブル (ooo)", "プラス (+++)", "縦縞 (|||)", "グリッド (+/+)"]
+    )
     if "斜線" in pat_type: hatch_p = "///"
-    elif "ドット" in pat_type: hatch_p = ".."
+    elif "ドット" in pat_type: hatch_p = "..."
     elif "クロス" in pat_type: hatch_p = "xx"
     elif "星" in pat_type: hatch_p = "**"
+    elif "バブル" in pat_type: hatch_p = "ooo"
+    elif "プラス" in pat_type: hatch_p = "+++"
+    elif "縦縞" in pat_type: hatch_p = "|||"
+    elif "グリッド" in pat_type: hatch_p = "+/+"
 
 elif style == "角丸 (Rounded)":
     round_v = st.sidebar.slider("丸み", 0.1, 1.0, 0.4)
